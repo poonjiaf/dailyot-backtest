@@ -18,6 +18,16 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-s
 td.n,th.n{text-align:right}.pos{color:var(--pos)}.neg{color:var(--neg)}
 .total{font-size:22px;font-weight:600;margin:4px 0 10px}
 .wrap{overflow-x:auto}.mut{color:var(--mut);font-size:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.tile .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile.main .v{font-size:26px}
+svg.eq{width:100%;height:auto;display:block}
+.eq .grid{stroke:var(--line);stroke-width:1}.eq .zero{stroke:var(--mut);stroke-width:1;stroke-dasharray:3 3}
+.eq .line{fill:none;stroke:var(--acc);stroke-width:2}.eq .area{fill:var(--acc);opacity:.12}
+.eq text{fill:var(--mut);font-size:11px;font-family:inherit}
+.eq .dot{fill:var(--acc)}.eq .bp{fill:var(--pos)}.eq .bn{fill:var(--neg)}
 </style></head><body><main>
 <h1>DailyOT backtest</h1>
 <div class="card">
@@ -56,11 +66,37 @@ $('go').onclick=async()=>{
  const j=await r.json();
  if(!r.ok){$('msg').textContent='';$('out').innerHTML='<div class="card neg">'+(j.error||r.status)+'</div>';return}
  $('msg').textContent=j.run_id?`saved as run ${j.run_id}`:'';
- let cum=0;
- const rows=j.rows.map(x=>{cum+=x.pnl;const c=x.pnl>0?'pos':x.pnl<0?'neg':'';
-  return `<tr><td>${x.date} ${x.weekday}</td><td>${x.trig}</td><td>${x.status}</td><td class="n ${c}">${x.pnl?money(x.pnl):'—'}</td><td class="n">${money(cum)}</td><td>${x.notes||''}</td></tr>`}).join('');
- $('out').innerHTML=`<div class="card"><div class="total ${j.total<0?'neg':'pos'}">${money(j.total)}</div>
- <div class="wrap"><table><thead><tr><th>Date</th><th>Trigger</th><th>Status</th><th class="n">P&amp;L</th><th class="n">Cumulative</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
+ let cum=0,peak=0,mdd=0;
+ const pts=j.rows.map(x=>{cum+=x.pnl;peak=Math.max(peak,cum);mdd=Math.min(mdd,cum-peak);return {d:x.date,c:cum}});
+ const trades=j.rows.filter(x=>x.status==='filled'),wins=trades.filter(x=>x.pnl>0).length;
+ const best=Math.max(...j.rows.map(x=>x.pnl),0),worst=Math.min(...j.rows.map(x=>x.pnl),0);
+ const tile=(k,v,c='',m='')=>`<div class="tile ${m}"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`;
+ const tiles=`<div class="tiles">`+tile('Net total',money(j.total),j.total<0?'neg':'pos','main')
+  +tile('Trades',trades.length+' filled')+tile('Win rate',trades.length?Math.round(100*wins/trades.length)+'%':'—')
+  +tile('Best day',money(best),'pos')+tile('Worst day',money(worst),'neg')+tile('Max drawdown',money(mdd),mdd<0?'neg':'')+`</div>`;
+ const W=820,H=230,L=58,R=14,T=14,B=26,xs=pts.length>1?(W-L-R)/(pts.length-1):0;
+ const lo=Math.min(0,...pts.map(p=>p.c)),hi=Math.max(0,...pts.map(p=>p.c)),span=(hi-lo)||1;
+ const X=i=>L+i*xs,Y=v=>T+(H-T-B)*(1-(v-lo)/span);
+ const path=pts.map((p,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.c).toFixed(1)).join(' ');
+ const area=pts.length?path+` L${X(pts.length-1).toFixed(1)} ${Y(0).toFixed(1)} L${X(0).toFixed(1)} ${Y(0).toFixed(1)} Z`:'';
+ const ticks=[lo,(lo+hi)/2,hi].map(v=>`<line class="grid" x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end">${money(v)}</text>`).join('');
+ const last=pts[pts.length-1];
+ const chart=pts.length?`<div class="card"><div class="mut" style="margin-bottom:6px">Cumulative P&amp;L</div>
+  <svg class="eq" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative P&L by date">${ticks}
+  <line class="zero" x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}"/><path class="area" d="${area}"/><path class="line" d="${path}"/>
+  <circle class="dot" cx="${X(pts.length-1)}" cy="${Y(last.c)}" r="3.5"/>
+  <text x="${L}" y="${H-6}">${pts[0].d}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${last.d}</text></svg></div>`:'';
+ const bw=Math.max(2,Math.min(22,(W-L-R)/Math.max(j.rows.length,1)*0.7));
+ const dl=Math.min(0,...j.rows.map(x=>x.pnl)),dh=Math.max(0,...j.rows.map(x=>x.pnl)),ds=(dh-dl)||1,DY=v=>T+(H-T-B)*(1-(v-dl)/ds);
+ const bars=j.rows.map((x,i)=>{const cx=L+(j.rows.length>1?i*(W-L-R)/(j.rows.length-1):0),y0=DY(0),y1=DY(x.pnl);
+  return x.pnl?`<rect class="${x.pnl>0?'bp':'bn'}" x="${(cx-bw/2).toFixed(1)}" y="${Math.min(y0,y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(y1-y0)).toFixed(1)}"><title>${x.date}: ${money(x.pnl)}</title></rect>`:''}).join('');
+ const dticks=[dl,dh].map(v=>`<line class="grid" x1="${L}" x2="${W-R}" y1="${DY(v)}" y2="${DY(v)}"/><text x="${L-6}" y="${DY(v)+4}" text-anchor="end">${money(v)}</text>`).join('');
+ const dchart=j.rows.length?`<div class="card"><div class="mut" style="margin-bottom:6px">Daily P&amp;L</div>
+  <svg class="eq" viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily P&L by date">${dticks}<line class="zero" x1="${L}" x2="${W-R}" y1="${DY(0)}" y2="${DY(0)}"/>${bars}
+  <text x="${L}" y="${H-6}">${j.rows[0].date}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${j.rows[j.rows.length-1].date}</text></svg></div>`:'';
+ const rows=j.rows.map((x,i)=>{const c=x.pnl>0?'pos':x.pnl<0?'neg':'';
+  return `<tr><td>${x.date} ${x.weekday}</td><td>${x.trig}</td><td>${x.status}</td><td class="n ${c}">${x.pnl?money(x.pnl):'—'}</td><td class="n">${money(pts[i].c)}</td><td>${x.notes||''}</td></tr>`}).join('');
+ $('out').innerHTML=tiles+chart+dchart+`<div class="card"><div class="wrap"><table><thead><tr><th>Date</th><th>Trigger</th><th>Status</th><th class="n">P&amp;L</th><th class="n">Cumulative</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
  <p class="mut">Backtest from stored quote snapshots; stop and fill timing is approximate.</p></div>`;
 };
 </script></main></body></html>
