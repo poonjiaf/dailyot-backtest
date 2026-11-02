@@ -15,7 +15,11 @@ def load_params():
         if not os.path.exists(path):
             raise RuntimeError("STRATEGY_PARAMS is missing or empty - add it in Vercel (Environment Variables) and redeploy")
         raw = open(path).read()
-    P = json.loads(raw)
+    try:
+        P = json.loads(raw)
+    except ValueError:
+        raise RuntimeError(f"STRATEGY_PARAMS is not valid JSON (length {len(raw)}, first character {raw[:1]!r}); "
+                           "it must be one line starting with {{ - re-copy it and paste it again") from None
     return P
 
 
