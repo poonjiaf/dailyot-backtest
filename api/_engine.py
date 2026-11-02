@@ -9,9 +9,11 @@ P = None
 
 def load_params():
     global P
-    raw = os.environ.get("STRATEGY_PARAMS")
+    raw = (os.environ.get("STRATEGY_PARAMS") or "").strip()
     if not raw:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "strategy_params.json")
+        if not os.path.exists(path):
+            raise RuntimeError("STRATEGY_PARAMS is missing or empty - add it in Vercel (Environment Variables) and redeploy")
         raw = open(path).read()
     P = json.loads(raw)
     return P
