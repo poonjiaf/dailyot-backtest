@@ -21,6 +21,8 @@ def fetch_days(d0, d1):
         rows = _get(url, key, f"/rest/v1/monitor_samples?select=date_et,time_et,raw&date_et=gte.{d0}"
                               f"&date_et=lte.{d1}&order=date_et,time_et&limit=1000&offset={off}")
         for r in rows:
+            if r["raw"].get("straddle_mid") in (None, ""):   # failed sample: no quotes
+                continue
             out.setdefault(r["date_et"], {})[r["time_et"]] = r["raw"]
         if len(rows) < 1000:
             return out
