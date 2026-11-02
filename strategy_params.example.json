@@ -1,0 +1,57 @@
+{
+ "cand_long": {
+  "atm": "ic20",
+  "m1": "ic20_m1",
+  "p1": "ic20_p1",
+  "p2": "ic20_p2"
+ },
+ "cand_short": {
+  "atm": "ic20",
+  "m1": "ic20_m1",
+  "p1": "ic20_p1"
+ },
+ "cond": {
+  "s_low": 0,
+  "s_mid": 0,
+  "s_high": 0,
+  "decay_cut": 0,
+  "bwb_drop": 0
+ },
+ "long": {
+  "entry_disc": 0,
+  "limit_cap": 0,
+  "window_end": "00:00",
+  "tp1_pts": 0,
+  "tp1_tick": 0,
+  "late_pts": 0,
+  "late_time": "00:00",
+  "stop_pts": 0,
+  "stop2_time": "00:00",
+  "units_total": 0,
+  "units_early": 0,
+  "tp2_target": 0,
+  "tp2_trail": 0
+ },
+ "short": {
+  "start_off": 0,
+  "floor_off": 0,
+  "floor_min": 0,
+  "start_min": 0,
+  "window_end": "00:00",
+  "tp1_pts": 0,
+  "tp1_tick": 0,
+  "late_pts": 0,
+  "late_time": "00:00",
+  "stop_pts": 0,
+  "stop2_time": "00:00",
+  "units_total": 0,
+  "units_early": 0,
+  "tp2_target": 0,
+  "tp2_stop_pts": 0
+ },
+ "post_fomc": {
+  "dates": [],
+  "crush": 0,
+  "move": 0
+ }
+}

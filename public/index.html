@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DailyOT Backtest</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#15181d;--mut:#667085;--card:#fff;--line:#dde1e7;--acc:#1f6feb;--pos:#0a7d3b;--neg:#c42b1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1216;--fg:#e8eaee;--mut:#98a2b3;--card:#171b21;--line:#2a3039;--acc:#58a6ff;--pos:#3fb36b;--neg:#f2766b}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:20px;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+.row{display:flex;flex-wrap:wrap;gap:10px}.row>div{flex:1 1 140px}
+input,select,textarea{width:100%;box-sizing:border-box}
+button{background:var(--acc);color:#fff;border:0;cursor:pointer;padding:9px 16px;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+td.n,th.n{text-align:right}.pos{color:var(--pos)}.neg{color:var(--neg)}
+.total{font-size:22px;font-weight:600;margin:4px 0 10px}
+.wrap{overflow-x:auto}.mut{color:var(--mut);font-size:12px}
+</style></head><body><main>
+<h1>DailyOT backtest</h1>
+<div class="card">
+ <div class="row">
+  <div><label>Password</label><input id="pw" type="password" autocomplete="current-password"></div>
+  <div><label>From</label><input id="from" type="date" value="2026-08-24"></div>
+  <div><label>To</label><input id="to" type="date"></div>
+ </div>
+ <div class="row">
+  <div><label>Strategy</label><select id="mode"><option value="auto">Auto (current rules, per-day condition)</option><option value="short">Force short 20IC on chosen dates</option></select></div>
+  <div><label>Stop</label><select id="stop"><option value="1">1-sample</option><option value="2">2-sample (confirm)</option></select></div>
+  <div><label>Units</label><input id="units" type="number" value="10" min="1"></div>
+ </div>
+ <div id="datesBox" style="display:none">
+  <label>Dates to force short (comma-separated) <a href="#" id="fomc">use FOMC-week days</a></label>
+  <textarea id="dates" rows="2" placeholder="2026-10-26, 2026-10-27"></textarea>
+ </div>
+ <label><input id="save" type="checkbox" style="width:auto"> save this run to Supabase</label>
+ <button id="go">Run backtest</button> <span id="msg" class="mut"></span>
+</div>
+<div id="out"></div>
+<script>
+const $=id=>document.getElementById(id);
+$('to').value=new Date().toISOString().slice(0,10);
+try{$('pw').value=sessionStorage.getItem('pw')||''}catch(e){}
+$('mode').onchange=()=>$('datesBox').style.display=$('mode').value==='short'?'block':'none';
+$('fomc').onclick=e=>{e.preventDefault();$('dates').value="2026-09-14, 2026-09-15, 2026-09-17, 2026-09-18, 2026-10-26, 2026-10-27, 2026-10-29, 2026-10-30"};
+const money=v=>(v<0?'−':'+')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});
+$('go').onclick=async()=>{
+ $('msg').textContent='running…';$('out').innerHTML='';
+ try{sessionStorage.setItem('pw',$('pw').value)}catch(e){}
+ const body={from:$('from').value,to:$('to').value,mode:$('mode').value,stop:+$('stop').value,units:+$('units').value,
+  dates:$('dates').value.split(/[\s,]+/).filter(Boolean),save:$('save').checked,
+  name:`${$('mode').value} ${$('stop').value}-sample ${$('units').value}u`};
+ const r=await fetch('/api/backtest',{method:'POST',headers:{'x-app-password':$('pw').value,'content-type':'application/json'},body:JSON.stringify(body)});
+ const j=await r.json();
+ if(!r.ok){$('msg').textContent='';$('out').innerHTML='<div class="card neg">'+(j.error||r.status)+'</div>';return}
+ $('msg').textContent=j.run_id?`saved as run ${j.run_id}`:'';
+ let cum=0;
+ const rows=j.rows.map(x=>{cum+=x.pnl;const c=x.pnl>0?'pos':x.pnl<0?'neg':'';
+  return `<tr><td>${x.date} ${x.weekday}</td><td>${x.trig}</td><td>${x.status}</td><td class="n ${c}">${x.pnl?money(x.pnl):'—'}</td><td class="n">${money(cum)}</td><td>${x.notes||''}</td></tr>`}).join('');
+ $('out').innerHTML=`<div class="card"><div class="total ${j.total<0?'neg':'pos'}">${money(j.total)}</div>
+ <div class="wrap"><table><thead><tr><th>Date</th><th>Trigger</th><th>Status</th><th class="n">P&amp;L</th><th class="n">Cumulative</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
+ <p class="mut">Backtest from stored quote snapshots; stop and fill timing is approximate.</p></div>`;
+};
+</script></main></body></html>

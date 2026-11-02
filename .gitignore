@@ -1,0 +1,7 @@
+.env
+.env.*
+.vercel
+__pycache__/
+*.pyc
+
+strategy_params.json
