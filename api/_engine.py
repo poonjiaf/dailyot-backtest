@@ -19,7 +19,7 @@ def load_params():
         P = json.loads(raw)
     except ValueError:
         raise RuntimeError(f"STRATEGY_PARAMS is not valid JSON (length {len(raw)}, first character {raw[:1]!r}); "
-                           "it must be one line starting with {{ - re-copy it and paste it again") from None
+                           "it must be one line starting with { - re-copy it and paste it again") from None
     return P
 
 
